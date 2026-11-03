@@ -1,0 +1,1233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fallen Angel Monitor</title>
+<meta name="description" content="Live screener that alerts you by email when a credit is downgraded from investment grade to high yield.">
+<style>
+:root{
+  --bg:#f6f7f9; --panel:#ffffff; --ink:#14171c; --muted:#5d6673; --line:#e2e5ea;
+  --accent:#1f5eff; --accent-ink:#ffffff;
+  --red:#c62828; --red-bg:#fdecec; --amber:#a15c00; --amber-bg:#fff4e0;
+  --blue:#1d4ed8; --blue-bg:#e8efff; --gray-bg:#eef0f3; --green:#18794e; --green-bg:#e6f6ee;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f1115; --panel:#171a21; --ink:#e8eaee; --muted:#9aa3b2; --line:#2a2f3a;
+    --accent:#5b8cff; --accent-ink:#0b0d12;
+    --red:#ff7b7b; --red-bg:#3a1c1f; --amber:#ffbe5c; --amber-bg:#3a2c14;
+    --blue:#8fb0ff; --blue-bg:#1c2640; --gray-bg:#232834; --green:#5fd39b; --green-bg:#16301f;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f1115; --panel:#171a21; --ink:#e8eaee; --muted:#9aa3b2; --line:#2a2f3a;
+  --accent:#5b8cff; --accent-ink:#0b0d12;
+  --red:#ff7b7b; --red-bg:#3a1c1f; --amber:#ffbe5c; --amber-bg:#3a2c14;
+  --blue:#8fb0ff; --blue-bg:#1c2640; --gray-bg:#232834; --green:#5fd39b; --green-bg:#16301f;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+a{color:var(--accent)}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:16px}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:13px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.dot.live{background:var(--green);box-shadow:0 0 0 4px var(--green-bg)}
+.dot.err{background:var(--red)}
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;overflow-x:auto}
+nav.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 12px;color:var(--muted);font:inherit;cursor:pointer;white-space:nowrap}
+nav.tabs button.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px}
+.panel h2{font-size:16px;margin:0 0 4px}
+.panel p.hint{color:var(--muted);margin:0 0 14px;font-size:13px}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input[type=text],input[type=email],input[type=number],input[type=date],select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.check{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--ink);margin:6px 0}
+.check input{margin-top:4px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.danger{color:var(--red)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.stats{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;box-shadow:var(--shadow)}
+.stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.stat .v{font-size:24px;font-weight:650;margin-top:2px;font-variant-numeric:tabular-nums}
+.stat .v.small{font-size:15px;font-weight:600}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.chip{padding:5px 11px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font-size:13px;cursor:pointer;color:var(--muted)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.toolbar input{max-width:260px}
+.card{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow)}
+.card.confirmed{border-left-color:var(--red)}
+.card.verify{border-left-color:var(--amber)}
+.card.watch{border-left-color:var(--blue)}
+.card.isnew{outline:2px solid var(--red);outline-offset:-1px}
+.card .top{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.card .issuer{font-weight:650;font-size:16px}
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:6px}
+.b-confirmed{background:var(--red-bg);color:var(--red)}
+.b-verify{background:var(--amber-bg);color:var(--amber)}
+.b-watch{background:var(--blue-bg);color:var(--blue)}
+.b-market{background:var(--gray-bg);color:var(--muted)}
+.b-src{background:var(--gray-bg);color:var(--muted);text-transform:none;letter-spacing:0;font-weight:600}
+.rt{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-weight:700;padding:2px 7px;border-radius:5px;font-size:13px}
+.rt.ig{background:var(--green-bg);color:var(--green)}
+.rt.hy{background:var(--red-bg);color:var(--red)}
+.meta{color:var(--muted);font-size:13px;margin-top:4px}
+.headline{margin-top:8px}
+.srcs{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--muted)}
+.info{margin-top:10px;padding:12px;border-radius:8px;background:var(--bg);border:1px solid var(--line);font-size:14px}
+.info img{float:right;max-width:90px;max-height:90px;margin:0 0 8px 12px;border-radius:6px}
+.links{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px;clear:both}
+.empty{text-align:center;color:var(--muted);padding:40px 16px;border:1px dashed var(--line);border-radius:12px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+.tablewrap{overflow-x:auto}
+.log{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--muted);max-height:220px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;white-space:pre-wrap}
+.charts{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.charts figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px}
+.charts img{width:100%;height:auto;display:block}
+.charts figcaption{font-size:12px;color:#5d6673;padding:4px 4px 0}
+.toast{position:fixed;right:16px;bottom:16px;max-width:360px;background:var(--ink);color:var(--bg);padding:12px 14px;border-radius:10px;font-size:14px;box-shadow:0 6px 24px rgba(0,0,0,.25);opacity:0;transform:translateY(10px);transition:.2s;pointer-events:none;z-index:9}
+.toast.show{opacity:1;transform:none}
+code{background:var(--gray-bg);padding:1px 5px;border-radius:4px;font-size:13px}
+.hidden{display:none!important}
+.prose p,.prose li{max-width:75ch}
+.scale{display:flex;flex-wrap:wrap;gap:4px;margin:8px 0}
+.line{width:2px;background:var(--red);margin:0 6px;border-radius:2px}
+@media (max-width:560px){.toolbar input{max-width:none;width:100%}h1{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Fallen Angel Monitor <span class="meta" style="font-size:12px;font-weight:500">v5</span></h1>
+      <div class="sub">Live alerts when a credit is downgraded from investment grade (BBB-/Baa3 or better) to high yield</div>
+    </div>
+    <div class="row">
+      <span class="pill" id="statusPill"><span class="dot" id="statusDot"></span><span id="statusText">Not monitoring</span></span>
+      <button class="btn sm" id="themeBtn" title="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="alerts" class="on">Alerts</button>
+    <button data-tab="examples">Run examples</button>
+    <button data-tab="setup">Email &amp; settings</button>
+    <button data-tab="bbg">Bloomberg / CSV import</button>
+    <button data-tab="history">Historical backfill</button>
+    <button data-tab="about">How it works</button>
+  </nav>
+
+  <!-- ALERTS -->
+  <section id="tab-alerts">
+    <div class="panel hidden" id="demoBanner" style="border-color:var(--accent)">
+      <div class="row" style="justify-content:space-between"><h2 id="demoTitle">Example</h2>
+        <div class="row"><button class="btn sm" id="demoBack">Back to examples</button><button class="btn sm" id="demoClose">Close</button></div></div>
+      <div id="demoNarr" style="margin-top:6px"></div>
+    </div>
+    <div class="panel hidden" id="onboard">
+      <h2>Get started in 30 seconds</h2>
+      <p class="hint">Enter your email and press <b>Start monitoring</b>. Keep this tab open: it checks global news every few minutes and emails you when a new fallen angel is detected.</p>
+      <div class="row">
+        <input type="email" id="quickEmail" placeholder="you@school.edu" style="max-width:320px">
+        <button class="btn primary" id="quickStart">Start monitoring</button>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">Confirmed, last 30d</div><div class="v" id="stConfirmed">0</div></div>
+      <div class="stat"><div class="k">To verify / on watch</div><div class="v" id="stWatch">0</div></div>
+      <div class="stat"><div class="k">Last check</div><div class="v small" id="stLast">—</div></div>
+      <div class="stat"><div class="k">Next check</div><div class="v small" id="stNext">—</div></div>
+    </div>
+
+    <div class="toolbar">
+      <button class="chip on" data-f="confirmed">Confirmed</button>
+      <button class="chip on" data-f="verify">To verify</button>
+      <button class="chip on" data-f="watch">Watch</button>
+      <button class="chip" data-f="market">Market news</button>
+      <input type="text" id="search" placeholder="Search issuer or headline">
+      <span style="flex:1"></span>
+      <button class="btn sm" id="checkNow">Check now</button>
+      <button class="btn sm" id="exportCsv">Export CSV</button>
+    </div>
+    <div class="panel hidden" id="mailFail" style="border-color:var(--red)">
+      <div class="row" style="justify-content:space-between"><b style="color:var(--red)">Email delivery is failing</b><button class="btn sm" id="mailFailClose">Dismiss</button></div>
+      <p class="hint" style="margin:6px 0 10px" id="mailFailMsg"></p>
+      <div class="row"><button class="btn sm primary" id="mailFailDiag">Open email settings</button><a class="btn sm" id="mailFailMailto">Open this alert in my email app</a></div>
+    </div>
+    <button class="btn hidden" id="pendingBar" style="width:100%;justify-content:center;margin-bottom:10px;border-color:var(--accent);color:var(--accent);font-weight:600"></button>
+    <div id="feed"></div>
+
+    <div class="panel" style="margin-top:18px">
+      <h2>Market context: credit spreads</h2>
+      <p class="hint">Option-adjusted spreads from ICE BofA indices via FRED. A fallen angel usually reprices from the IG line toward the HY line.</p>
+      <div class="charts">
+        <figure><img id="chHY" alt="ICE BofA US High Yield OAS chart" loading="lazy"><figcaption>US High Yield OAS (BAMLH0A0HYM2) · <a href="https://fred.stlouisfed.org/series/BAMLH0A0HYM2" target="_blank" rel="noopener">FRED</a></figcaption></figure>
+        <figure><img id="chBBB" alt="ICE BofA BBB OAS chart" loading="lazy"><figcaption>US BBB Corporate OAS (BAMLC0A4CBBB) · <a href="https://fred.stlouisfed.org/series/BAMLC0A4CBBB" target="_blank" rel="noopener">FRED</a></figcaption></figure>
+        <figure><img id="chBB" alt="ICE BofA BB OAS chart" loading="lazy"><figcaption>US BB High Yield OAS (BAMLH0A1HYBB) · <a href="https://fred.stlouisfed.org/series/BAMLH0A1HYBB" target="_blank" rel="noopener">FRED</a></figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- EXAMPLES -->
+  <section id="tab-examples" class="hidden">
+    <div class="panel">
+      <h2>Illustrative examples</h2>
+      <p class="hint">Use these when no credits are being downgraded. Each scenario sends simulated headlines or Bloomberg rating snapshots through the same detection, alert and email steps as live data. Results are tagged <span class="badge b-src">Example</span>, the companies are fictional, and <b>Clear examples</b> removes them.</p>
+      <label class="check"><input type="checkbox" id="exEmail"> Send real alert emails for examples (subject starts with [EXAMPLE]; uses the email in Settings)</label>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary" id="exAll">▶ Play guided demo (all scenarios)</button>
+        <button class="btn danger" id="exClear">Clear examples</button>
+      </div>
+    </div>
+    <div class="grid" id="exList" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))"></div>
+  </section>
+
+  <!-- SETUP -->
+  <section id="tab-setup" class="hidden">
+    <div class="panel">
+      <h2>Email alerts</h2>
+      <p class="hint">Type your email and press <b>Start monitoring</b>. You don't need an account, an app or any setup.</p>
+      <div id="mailStatus" class="info" style="margin:0 0 14px"></div>
+      <div class="grid">
+        <div><label for="email">Your email</label><input type="email" id="email" placeholder="you@school.edu"></div>
+        <div><label for="interval">Check every (minutes)</label><input type="number" id="interval" min="5" max="120" step="1"></div>
+      </div>
+      <div style="margin-top:10px">
+        <label class="check"><input type="checkbox" id="optVerify"> Also email "to verify" alerts (a downgrade into HY where the headline doesn't state the prior rating)</label>
+        <label class="check"><input type="checkbox" id="optWatch"> Also email "watch" alerts (issuer flagged at risk of losing investment grade)</label>
+        <label class="check"><input type="checkbox" id="optDesktop"> Desktop pop-up notifications in this browser too</label>
+        <label class="check"><input type="checkbox" id="optBaseline"> On first start, also email fallen angels from the past 48 hours</label>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="startBtn">Start monitoring</button>
+        <button class="btn" id="stopBtn">Stop</button>
+        <button class="btn" id="testBtn">Send test email</button>
+      </div>
+      <p class="hint" id="testOut" style="margin-top:10px">If several downgrades arrive at once, they're combined into one digest email. Check spam the first time.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Data sources</h2>
+      <p class="hint">Both sources are free and need no login.</p>
+      <label class="check"><input type="checkbox" id="srcGdelt"> GDELT global news index (updates every 15 minutes, 65+ languages, filtered to English)</label>
+      <label class="check"><input type="checkbox" id="srcGnews"> Google News search feed (via a public CORS relay)</label>
+      <label class="check"><input type="checkbox" id="srcFile"> Re-read a watched Bloomberg export file on every check (set it up in the Bloomberg tab)</label>
+    </div>
+
+    <details class="panel" id="ejPanel">
+      <summary style="cursor:pointer;font-weight:600">Builder setup: switch on email for everyone (one time, about 5 minutes)</summary>
+      <p class="hint" style="margin-top:10px">Only the person publishing this app does this, once. It connects a free <a href="https://www.emailjs.com" target="_blank" rel="noopener">EmailJS</a> account to a Gmail address that sends the alerts. Afterwards, everyone who uses your copy just types their email.</p>
+      <ol class="prose" style="margin:0 0 12px;padding-left:20px;font-size:14px">
+        <li>Sign up free at <a href="https://dashboard.emailjs.com/sign-up" target="_blank" rel="noopener">emailjs.com</a>.</li>
+        <li><b>Email Services → Add New Service → Gmail → Connect Account.</b> On Google's permission screen, <b>tick "Send email on your behalf"</b>, then click <b>Create Service</b>. Copy the <b>Service ID</b> (looks like <code>service_ab12cd3</code>).</li>
+        <li><b>Email Templates → Create New Template.</b> Set:
+          <ul><li><b>Subject:</b> <code>{{subject}}</code></li><li><b>Content:</b> <code>{{message}}</code></li><li><b>To Email</b> (right-hand side): <code>{{to_email}}</code>. <i>Don't skip this one, or every alert goes to you instead of the user.</i></li><li><b>From Name:</b> <code>Fallen Angel Monitor</code></li></ul>
+          Click <b>Save</b>, then copy the <b>Template ID</b> (looks like <code>template_xy98z7</code>).</li>
+        <li><b>Account → General</b>: copy the <b>Public Key</b>.</li>
+        <li>Paste all three below, enter your email in <b>Your email</b> above, and click <b>Send test</b>. When it says <b>Sent</b>, click <b>Download configured app</b>.</li>
+        <li>Use the downloaded file from then on: open it, send it to classmates, or host it. Email works in it for everyone.</li>
+      </ol>
+      <div class="grid">
+        <div><label for="ejService">Service ID</label><input type="text" id="ejService" placeholder="service_…"></div>
+        <div><label for="ejTemplate">Template ID</label><input type="text" id="ejTemplate" placeholder="template_…"></div>
+        <div><label for="ejKey">Public Key</label><input type="text" id="ejKey" placeholder="e.g. AbC123xyz…"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn" id="builderTest">Send test</button>
+        <button class="btn primary" id="builderDownload">Download configured app</button>
+      </div>
+      <p class="hint" id="builderOut" style="margin-top:10px"></p>
+      <p class="hint">The Public Key is designed to be visible in web pages, so it's safe to build into the file. EmailJS's free plan covers a few hundred emails a month, which is plenty for a class project.</p>
+    </details>
+
+    <div class="panel">
+      <h2>Activity log</h2>
+      <div class="log" id="log"></div>
+      <div class="row" style="margin-top:10px"><button class="btn sm danger" id="resetBtn">Reset all data</button></div>
+    </div>
+  </section>
+
+  <!-- BLOOMBERG -->
+  <section id="tab-bbg" class="hidden">
+    <div class="panel">
+      <h2>Plug in Bloomberg data</h2>
+      <p class="hint">A web page can't connect directly to the Bloomberg API: it needs a licensed Terminal session. Instead, export ratings from the Bloomberg Excel Add-in on any Terminal (for example in your school's Bloomberg lab), and this app compares each new snapshot against the previous ones to flag IG to HY crossings.</p>
+      <ol class="prose" style="margin:0 0 12px;padding-left:20px">
+        <li>In Excel on a Terminal, list securities in column A (for example <code>F US Equity</code>, or a bond CUSIP followed by <code>Corp</code>).</li>
+        <li>Add the columns <code>=BDP(A2,"NAME")</code>, <code>=BDP(A2,"RTG_SP")</code>, <code>=BDP(A2,"RTG_MOODY")</code>, <code>=BDP(A2,"RTG_FITCH")</code>, and optionally <code>=BDP(A2,"INDUSTRY_SECTOR")</code>.</li>
+        <li>Save as CSV with the headers <code>Ticker,Name,RTG_SP,RTG_MOODY,RTG_FITCH,INDUSTRY_SECTOR</code>. Add a <code>Date</code> column to load several historical snapshots at once (rating history is on the Terminal's <code>CRPR &lt;GO&gt;</code> screen).</li>
+        <li>Import the file below. Re-import later, or use <b>Watch file</b> (Chrome/Edge) so every check re-reads the file your sheet saves.</li>
+      </ol>
+      <div class="row">
+        <input type="file" id="csvInput" accept=".csv,text/csv" class="hidden">
+        <button class="btn primary" id="csvBtn">Import CSV snapshot</button>
+        <button class="btn" id="watchFileBtn">Watch file (auto re-read)</button>
+        <button class="btn" id="demoBtn">Load demo history</button>
+        <button class="btn danger" id="clearBbg">Clear imported data</button>
+      </div>
+      <p class="hint" id="watchStatus" style="margin-top:10px"></p>
+    </div>
+
+    <div class="panel">
+      <h2>Rated universe</h2>
+      <p class="hint">Index rating uses the Bloomberg index rule: the middle of Moody's, S&amp;P and Fitch; the lower of two ratings if only two are available. Rows at BBB-/Baa3 are one notch from high yield.</p>
+      <div class="tablewrap"><table id="bbgTable"><thead><tr><th>Issuer</th><th>As of</th><th>S&amp;P</th><th>Moody's</th><th>Fitch</th><th>Index rating</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- HISTORY -->
+  <section id="tab-history" class="hidden">
+    <div class="panel">
+      <h2>Import historical downgrades</h2>
+      <p class="hint">Pull past fallen-angel headlines from the GDELT news archive (coverage goes back to 2017). Results go into the same feed, marked as historical, and are never emailed.</p>
+      <div class="grid">
+        <div><label for="hStart">From</label><input type="date" id="hStart"></div>
+        <div><label for="hEnd">To</label><input type="date" id="hEnd"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="backfillBtn">Run backfill</button>
+        <button class="btn" data-preset="30">Last 30 days</button>
+        <button class="btn" data-preset="90">Last 90 days</button>
+        <button class="btn" data-preset="covid">Mar–Apr 2020 (COVID wave)</button>
+      </div>
+      <p class="hint" id="backfillStatus" style="margin-top:10px"></p>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="tab-about" class="hidden">
+    <div class="panel prose">
+      <h2>What counts as a fallen angel</h2>
+      <p>A <b>fallen angel</b> is an issuer rated investment grade that is downgraded into high yield ("junk"). The line sits between <b>BBB-</b> and <b>BB+</b> on the S&amp;P and Fitch scales, and between <b>Baa3</b> and <b>Ba1</b> on Moody's.</p>
+      <div class="scale" id="scaleRow"></div>
+      <p>These events matter because many insurance, pension and IG-index mandates can't hold high-yield debt. Downgrades bring forced selling, wider spreads and an index migration (once the index rating crosses the line, the bonds leave IG indices at month-end). Researchers have documented price overshoot and later recovery, which is why fallen-angel ETFs exist.</p>
+      <h2 style="margin-top:18px">How detection works</h2>
+      <ol>
+        <li><b>Crawl:</b> every few minutes the app queries the GDELT global news index and Google News for downgrade language ("cut to junk", "below investment grade", "speculative grade", rating codes like <code>BB+</code>/<code>Ba1</code>).</li>
+        <li><b>Classify:</b> each headline is parsed for the rating agency, the issuer, the old and new ratings, and the direction. Upgrades, affirmations and moves deeper within junk are discarded.
+          <ul>
+            <li><span class="badge b-confirmed">Confirmed</span> the headline shows an IG to HY move ("cut to junk", "Baa3 to Ba1", or a downgrade to BB+/Ba1, the top HY notch, which can only come from IG).</li>
+            <li><span class="badge b-verify">To verify</span> a downgrade to an HY rating where the prior rating isn't stated.</li>
+            <li><span class="badge b-watch">Watch</span> the issuer is at risk: negative watch, review or outlook, or "could be cut to junk".</li>
+          </ul></li>
+        <li><b>Deduplicate:</b> stories about the same issuer and agency within three weeks are merged into one alert, with every source listed.</li>
+        <li><b>Alert:</b> new confirmed events are emailed to you with the issuer, agency, rating move, a company summary and research links.</li>
+        <li><b>Bloomberg snapshots</b> (optional) are compared one at a time, so a change in <code>RTG_SP</code>, <code>RTG_MOODY</code> or <code>RTG_FITCH</code> across the line raises an alert straight from Terminal data.</li>
+      </ol>
+      <h2 style="margin-top:18px">Limitations</h2>
+      <ul>
+        <li>Alerts run while this page is open (a pinned tab works). Your settings and alert history are saved in this browser.</li>
+        <li>News parsing is heuristic, so always confirm on the rating agency's site before acting. The links on each alert make that one click.</li>
+        <li>Agencies publish full rating actions behind free or paid logins. This app links to them but doesn't scrape them.</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h2>Self-test the classifier</h2>
+      <p class="hint">Type any headline to see how the screener would classify it.</p>
+      <input type="text" id="testHeadline" value="S&amp;P cuts Ford to junk as coronavirus hits automakers">
+      <div id="testOut" class="meta" style="margin-top:8px"></div>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+// Snapshot of this file as loaded, used by "Download configured app" in Builder setup.
+const PRISTINE_HTML = '<!doctype html>\n' + document.documentElement.outerHTML;
+/* ------------------------------------------------------------------ storage */
+const KEY = 'fam_state_v1';
+function loadState(){ try{ const s = JSON.parse(localStorage.getItem(KEY)||'null'); if(s) return s; }catch(e){} return null; }
+function saveState(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+const DEFAULTS = {
+  email:'', topic:'', interval:15, monitoring:false, startedAt:null, baselineDone:false,
+  opt:{verify:false, watch:false, desktop:false, baseline:true, push:false},
+  src:{gdelt:true, gnews:true, file:false},
+  ej:{service:'',template:'',key:''},
+  events:{}, seen:{}, log:[], lastCheck:null, nextCheck:null,
+  bbg:{ rows:{} }, // ticker -> {name, sector, hist:{sp:[[date,r]], m:[], f:[]}}
+  filters:{confirmed:true, verify:true, watch:true, market:false}
+};
+let S = Object.assign({}, DEFAULTS, loadState()||{});
+for (const k of ['opt','src','ej','bbg','filters']) S[k] = Object.assign({}, DEFAULTS[k], S[k]||{});
+if(!S.topic) S.topic = 'fallen-angel-' + Math.random().toString(36).slice(2,8) + Math.random().toString(36).slice(2,8);
+
+/* ------------------------------------------------------------------ ratings */
+const SP_SCALE = ['AAA','AA+','AA','AA-','A+','A','A-','BBB+','BBB','BBB-','BB+','BB','BB-','B+','B','B-','CCC+','CCC','CCC-','CC','C','D'];
+const M_SCALE  = ['Aaa','Aa1','Aa2','Aa3','A1','A2','A3','Baa1','Baa2','Baa3','Ba1','Ba2','Ba3','B1','B2','B3','Caa1','Caa2','Caa3','Ca','C'];
+const IG_CUTOFF = 9; // index of BBB- / Baa3
+function notch(r){
+  if(!r) return null;
+  let i = SP_SCALE.indexOf(r); if(i>=0) return i;
+  i = M_SCALE.indexOf(r); if(i>=0) return i;
+  if(r==='SD'||r==='RD'||r==='DDD'||r==='DD') return 21;
+  return null;
+}
+function grade(r){ const n = notch(r); return n==null ? null : (n<=IG_CUTOFF ? 'IG' : 'HY'); }
+const RT_TOKEN = /^(AAA|AA[+-]?|A[+-]?|BBB[+-]?|BB[+-]?|B[+-]?|CCC[+-]?|CC|C|SD|RD|DDD|DD|D|Aaa|Aa[1-3]|A[1-3]|Baa[1-3]|Ba[1-3]|B[1-3]|Caa[1-3]|Ca)$/;
+/** Normalise Bloomberg / agency strings: "(P)Baa3", "BB+ *-", "BBB-u", "NR", "WR" */
+function normRating(s){
+  if(s==null) return null;
+  s = String(s).replace(/\((P|EXP|e|sf)\)/gi,'').replace(/[*]+[+-]?/g,' ').trim();
+  for(let tok of s.split(/[\s/]+/)){
+    tok = tok.replace(/^['"]|['"]$/g,'').replace(/(u|pi|e|p|\(sf\))$/,'');
+    if(RT_TOKEN.test(tok)) return tok;
+  }
+  return null;
+}
+/** Bloomberg index rule: middle of three; lower of two; else the one */
+function indexRating(sp,m,f){
+  const ns = [sp,m,f].map(notch).filter(n=>n!=null).sort((a,b)=>a-b);
+  if(!ns.length) return null;
+  const n = ns.length===3 ? ns[1] : ns[ns.length-1];
+  return SP_SCALE[n];
+}
+
+/* ------------------------------------------------------------------ headline classifier */
+const HL_RT = /(?<![A-Za-z0-9])['"‘’“”]?(AAA|AA[+-]|AA|BBB[+-]|BBB|BB[+-]|BB|B[+-]|CCC[+-]?|Aaa|Aa[1-3]|A[1-3]|Baa[1-3]|Ba[1-3]|B[1-3]|Caa[1-3])['"‘’“”]?(?![A-Za-z0-9+])/g;
+const AGENCY_RE = [[/S&P|Standard\s*&\s*Poor/i,"S&P"],[/Moody/i,"Moody's"],[/Fitch/i,"Fitch"],[/DBRS/i,"DBRS Morningstar"],[/KBRA|Kroll Bond/i,"KBRA"]];
+const AG_NAME = String.raw`(?:S&P(?:\s+Global)?(?:\s+Ratings)?|Standard\s*&\s*Poor'?s|Moody'?s(?:\s+Investors\s+Service|\s+Ratings)?|Fitch(?:\s+Ratings)?|DBRS(?:\s+Morningstar)?|Morningstar\s+DBRS|KBRA)`;
+const DOWN_V = String.raw`(?:downgrades?|downgraded|cuts?|cutting|lowers?|lowered|slashes|slashed|demotes?|demoted|moves?|moved|takes?|took|sends?|sent|strips?|stripped|pushes|pushed|relegates?|relegated|knocks?|knocked)`;
+const UP_RE = /\bupgrad|\braise[sd]?\b|\blifts?\b|\blifted\b|back to investment|(regains?|restores?|returns? to|wins?|earns?|achieves?) investment|rising stars?|out of junk|from junk to/i;
+const DEEPER_RE = /\b(deeper|further|more deeply)\s+(in|into)\s+(junk|high[- ]yield|speculative)/i;
+const HYWORD_RE = /\b(junk|high[- ]yield|speculative[- ]grade|sub[- ]investment[- ]grade|non[- ]investment[- ]grade|below investment[- ]grade|loses? (its |their )?investment[- ]grade|lost (its |their )?investment[- ]grade|strip(s|ped)? .{0,30}investment[- ]grade)/i;
+const DOWN_RE = /\b(downgrad\w*|cut|cuts|cutting|lower(s|ed|ing)?|slash\w*|demot\w*|strip\w*|loses?|lost|falls?|fell|fallen|drops?|dropped|sinks?|sank|relegat\w*|push\w*|sent|knock\w*|tumbles?)\b/i;
+const SPEC_RE = /\b(could|may|might|would|risks?|risking|threat\w*|warns?|warning|watch|review|outlook|brink|verge|edge|cusp|close to|nears?|nearing|poised|faces?|facing|avoid\w*|spare[sd]?|escape[sd]?|keeps?|kept|affirm\w*|retain\w*|maintain\w*|holds?|fears?|likely|possible|potential|if\b|unless|ahead of|step closer|one notch above)\b|\?/i;
+const MARKET_RE = /\bfallen angels?\b/i;
+
+function cleanTitle(t){
+  return String(t||'').replace(/\s+/g,' ')
+    .replace(/^(UPDATE\s*\d*\s*[-:]|BRIEF\s*[-:]|EXCLUSIVE\s*[-:]|Exclusive:|BREAKING:|CORRECTED\s*[-:]|REFILE\s*[-:]|RPT\s*[-:])\s*/i,'')
+    .replace(/\s+[-|–—]\s+[^-|–—]{2,40}$/,'') // " - Reuters"
+    .trim();
+}
+function cleanIssuer(x){
+  if(!x) return null;
+  x = x.replace(new RegExp('^'+AG_NAME+String.raw`\s*[:,-]?\s*`,'i'),'')
+       .replace(/^(the\s+)?(rating\s+agency\s+|agency\s+)/i,'')
+       .replace(/[‘’]/g,"'")
+       .replace(/^['"“”]+|['"“”]+$/g,'')
+       .replace(/\s+(could|may|might|would|will|is set to|set to|risks|faces|is likely to|likely to)(\s+be(ing)?)?$/i,'')
+       .replace(/\s+(credit|debt|bonds?|ratings?|issuer|long-term|senior|unsecured|notes?|corporate family)(\s+(credit|debt|bonds?|ratings?|issuer|long-term|senior|unsecured|notes?))*$/i,'')
+       .replace(/^(shares of|bonds of|debt of)\s+/i,'')
+       .replace(/[,;:.]+$/,'').trim();
+  if(x.length<2 || x.split(/\s+/).length>7) return null;
+  if(/^(it|its|they|company|companies|firms?|issuers?|bonds?|debt|us|u\.s\.|more|many|another|this|that|investment|ratings?)$/i.test(x)) return null;
+  return x;
+}
+function extractIssuer(t){
+  const x = extractIssuer0(t); if(!x) return null;
+  const i = t.indexOf(x);
+  if(/'s$/.test(x) && i>=0 && /^\s+(credit|debt|bonds?|ratings?|issuer|long-term|senior|unsecured|notes|corporate)/i.test(t.slice(i+x.length))) return x.slice(0,-2);
+  return x;
+}
+function extractIssuer0(t){
+  t = t.replace(/[‘’]/g,"'");
+  let m;
+  m = t.match(new RegExp(AG_NAME+String.raw`\s+(?:has\s+|have\s+)?`+DOWN_V+String.raw`\s+(.+?)\s+(?:(?:credit|debt|bonds?|issuer|long-term|senior|unsecured|corporate family)\s+)*(?:ratings?\s+)?(?:to|into|deeper|below|from|one\s+notch|a\s+notch|two\s+notches|three\s+notches|by|on|over|after|amid|as)\b`,'i'));
+  if(m) return cleanIssuer(m[1]);
+  m = t.match(/^(.+?)(?:'s|’s)\s+(?:(?:long-term|senior|unsecured|credit|debt|bond|issuer)\s+)*(?:ratings?|debt|bonds?|notes|credit)\s+(?:is\s+|was\s+|gets?\s+|has\s+been\s+)?(?:downgraded|cut|lowered|slashed|demoted|pushed|sent|falls?|fell|drops?|dropped)/i);
+  if(m) return cleanIssuer(m[1]);
+  m = t.match(/^(.+?)\s+(?:is\s+|was\s+|gets?\s+|got\s+|has\s+been\s+|have\s+been\s+|are\s+|were\s+)?(?:downgraded|cut|lowered|slashed|demoted|relegated|pushed|sent|falls?|fell|drops?|dropped|sinks?|sank|tumbles?|loses?|lost)\s+(?:to|into|below|from|its|their|investment)\b/i);
+  if(m) return cleanIssuer(m[1]);
+  m = t.match(new RegExp(String.raw`^(.+?)\s*:\s*`+AG_NAME,'i'));
+  if(m) return cleanIssuer(m[1]);
+  return null;
+}
+function classify(raw){
+  const t = cleanTitle(raw);
+  if(!t) return null;
+  let agency = null; for(const [re,n] of AGENCY_RE){ if(re.test(t)){ agency=n; break; } }
+  const toks = []; let mm; HL_RT.lastIndex = 0;
+  while((mm = HL_RT.exec(t))){ toks.push({r:mm[1], i:mm.index, end:mm.index+mm[0].length}); }
+  const mainClause = t.split(/;\s*(?=outlook|rating watch|placed|places|off|removed|affirm)/i)[0];
+  const up = UP_RE.test(t), deeper = DEEPER_RE.test(t), hyword = HYWORD_RE.test(t), down = DOWN_RE.test(t), spec = SPEC_RE.test(mainClause) || /\b(on|for)\s+(review|watch|creditwatch)\b/i.test(t) && !/;/.test(t);
+  const placed = new RegExp(AG_NAME+String.raw`\s+(?:places?|placed|puts?|put)\s+(.+?)\s+on\s+(?:credit\s*watch|creditwatch|review|watch|rating\s+watch)`,'i').exec(t);
+  const issuer = placed ? cleanIssuer(placed[1]) : extractIssuer(t);
+  let from=null, to=null;
+  // "X to BB+ from BBB-"  /  "X from Baa3 to Ba1" / "X to Ba1"
+  for(let k=0;k<toks.length;k++){
+    const before = t.slice(Math.max(0,toks[k].i-8), toks[k].i).toLowerCase();
+    if(/\bto\s*$/.test(before) || /\binto\s*$/.test(before)) to = to || toks[k].r;
+    if(/\bfrom\s*$/.test(before)) from = from || toks[k].r;
+  }
+  if(!to && toks.length===2 && /\bto\b/i.test(t.slice(toks[0].end, toks[1].i))){ from = toks[0].r; to = toks[1].r; }
+  if(!to && toks.length===1 && down) to = toks[0].r;
+  const base = {title:t, agency, issuer, from, to};
+  if(placed && hyword) return {...base, type:'watch'};
+  if(up && !(down && hyword && !/\bupgrad/i.test(t))) return null;
+  if(deeper) return null;
+  // Rating-code evidence
+  if(to){
+    const gt = grade(to), gf = grade(from);
+    if(gt==='IG') return spec && hyword ? {...base, type:'watch'} : null; // IG->IG
+    if(gt==='HY'){
+      if(gf==='HY') return null;                          // HY->HY
+      if(spec) return {...base, type:'watch'};
+      if(gf==='IG' || to==='BB+' || to==='Ba1') return {...base, type:'confirmed'};
+      if(hyword && /\b(junk|investment[- ]grade)\b/i.test(t)) return {...base, type:'confirmed'};
+      return {...base, type:'verify'};
+    }
+  }
+  if(hyword && down){
+    if(spec) return {...base, type: issuer ? 'watch' : 'market'};
+    return {...base, type: issuer ? 'confirmed' : 'market'};
+  }
+  if(hyword && /\bfallen angel/i.test(t) && issuer) return {...base, type:'watch'};
+  if(MARKET_RE.test(t) || (hyword && /\b(investment[- ]grade|junk)\b/i.test(t) && /\b(downgrade|fallen|cliff|BBB)\b/i.test(t))) return {...base, type:'market'};
+  return null;
+}
+
+/* ------------------------------------------------------------------ helpers */
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const enc = encodeURIComponent;
+const TYPE_RANK = {market:0, watch:1, verify:2, confirmed:3};
+const TYPE_LABEL = {confirmed:'Confirmed IG → HY', verify:'To verify', watch:'Watch', market:'Market news'};
+function issuerKey(n){ return String(n||'').toLowerCase().replace(/&/g,' and ').replace(/[^a-z0-9 ]/g,' ').replace(/\b(the|inc|incorporated|corp|corporation|co|company|plc|ltd|limited|llc|lp|sa|ag|nv|se|spa|group|holdings?|international|intl)\b/g,' ').replace(/\s+/g,' ').trim(); }
+function fmtDate(ms){ if(!ms) return '—'; const d=new Date(ms); return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}); }
+function fmtTime(ms){ if(!ms) return '—'; const d=new Date(ms); const today = new Date().toDateString()===d.toDateString(); return today ? d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}) : d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }
+function log(msg){ const line = new Date().toLocaleTimeString()+'  '+msg; S.log.unshift(line); S.log = S.log.slice(0,200); saveState(); const el=$('#log'); if(el) el.textContent = S.log.join('\n'); }
+let toastT; function toast(m){ const el=$('#toast'); el.textContent=m; el.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>el.classList.remove('show'),4200); }
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function rtChip(r){ if(!r) return ''; const g = grade(r); return `<span class="rt ${g==='IG'?'ig':'hy'}">${esc(r)}</span>`; }
+function domainOf(u){ try{ return new URL(u).hostname.replace(/^www\./,''); }catch(e){ return ''; } }
+
+/* ------------------------------------------------------------------ fetching */
+const RELAYS = [u=>u, u=>'https://api.allorigins.win/raw?url='+enc(u), u=>'https://corsproxy.io/?url='+enc(u)];
+async function fetchText(url, {direct=true}={}){
+  let lastErr;
+  for(let i = direct?0:1; i<RELAYS.length; i++){
+    try{
+      const ctl = new AbortController(); const to = setTimeout(()=>ctl.abort(), 20000);
+      const r = await fetch(RELAYS[i](url), {signal:ctl.signal}); clearTimeout(to);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return await r.text();
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('fetch failed');
+}
+const GDELT_QUERIES = [
+  '("cut to junk" OR "downgraded to junk" OR "downgrades to junk" OR "junk status" OR "junk territory" OR "junk rating" OR "to junk") sourcelang:english',
+  '("below investment grade" OR "speculative grade" OR "fallen angel" OR "loses investment grade" OR "lost investment grade" OR "sub-investment grade") sourcelang:english'
+];
+function gdeltDate(s){ const m = /^(\d{4})(\d{2})(\d{2})T?(\d{2})(\d{2})(\d{2})/.exec(s||''); return m ? Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]) : Date.now(); }
+function gdeltStamp(d){ const p=n=>String(n).padStart(2,'0'); return d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate())+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds()); }
+async function fetchGdelt({timespan, start, end}={}){
+  const out = [];
+  for(const q of GDELT_QUERIES){
+    let url = 'https://api.gdeltproject.org/api/v2/doc/doc?mode=artlist&format=json&sort=datedesc&maxrecords=250&query='+enc(q);
+    url += start ? '&startdatetime='+gdeltStamp(start)+'&enddatetime='+gdeltStamp(end) : '&timespan='+(timespan||'2d');
+    const txt = await fetchText(url);
+    let j; try{ j = JSON.parse(txt); }catch(e){ throw new Error('GDELT: '+txt.slice(0,120)); }
+    for(const a of (j.articles||[])) out.push({title:a.title, url:a.url, domain:a.domain||domainOf(a.url), date:gdeltDate(a.seendate), via:'GDELT'});
+    await sleep(5500); // GDELT asks for ≤1 request / 5 s
+  }
+  return out;
+}
+async function fetchGnews(){
+  const q = '"cut to junk" OR "downgraded to junk" OR "junk status" OR "below investment grade" OR "speculative grade" OR "fallen angel" when:7d';
+  const url = 'https://news.google.com/rss/search?hl=en-US&gl=US&ceid=US:en&q='+enc(q);
+  const txt = await fetchText(url, {direct:false});
+  const doc = new DOMParser().parseFromString(txt, 'text/xml');
+  return [...doc.querySelectorAll('item')].map(it=>{
+    const src = it.querySelector('source');
+    return {title:it.querySelector('title')?.textContent||'', url:it.querySelector('link')?.textContent||'', domain:src?.textContent||'', date:Date.parse(it.querySelector('pubDate')?.textContent||'')||Date.now(), via:'Google News'};
+  });
+}
+
+/* ------------------------------------------------------------------ event store */
+function ingest(articles, {historical=false, baseline=false, sim=false}={}){
+  const fresh = [];
+  for(const a of articles){
+    if(!a.url || S.seen[a.url]) continue;
+    S.seen[a.url] = Date.now();
+    const c = classify(a.title); if(!c) continue;
+    const ik = c.issuer ? issuerKey(c.issuer) : null;
+    let id = c.type==='market' || !ik ? 'm|'+c.title.toLowerCase().replace(/[^a-z0-9]+/g,' ').slice(0,70) : ik+'|'+(c.agency||'');
+    // merge with an agency-less or agency-bearing twin within 21 days
+    const near = Object.values(S.events).find(e => ik && e.ik===ik && Math.abs(e.date-a.date) < 21*864e5 && (!e.agency || !c.agency || e.agency===c.agency));
+    const src = {title:a.title, url:a.url, domain:a.domain, date:a.date, via:a.via};
+    if(near){
+      if(!near.sources.some(s=>s.url===a.url)) near.sources.push(src);
+      if(TYPE_RANK[c.type] > TYPE_RANK[near.type]){
+        near.type = c.type;
+        if(!historical && !baseline && !near.emailed) fresh.push(near);
+      }
+      near.agency = near.agency || c.agency; near.from = near.from || c.from; near.to = near.to || c.to;
+      if(a.date < near.date) near.date = a.date;
+      continue;
+    }
+    if(S.events[id] && Math.abs(S.events[id].date - a.date) >= 21*864e5) id += '|'+new Date(a.date).toISOString().slice(0,7);
+    if(S.events[id]){ S.events[id].sources.push(src); continue; }
+    const ev = {id, ik, issuer:c.issuer, agency:c.agency, from:c.from, to:c.to, type:c.type, title:c.title, date:a.date, firstSeen:Date.now(), sources:[src], historical, emailed:false, origin:'news'};
+    if(sim){ ev.sim = true; const pr = EX_PROFILES[ik]||{}; ev.summary = pr.summary||null; ev.sector = pr.sector||''; ev.desc = pr.desc||null; }
+    S.events[id] = ev;
+    if(!historical && (!baseline || (S.opt.baseline && Date.now()-a.date < 48*36e5))) fresh.push(ev);
+  }
+  // prune seen map
+  const keys = Object.keys(S.seen); if(keys.length>6000){ keys.sort((x,y)=>S.seen[x]-S.seen[y]).slice(0,keys.length-5000).forEach(k=>delete S.seen[k]); }
+  return fresh;
+}
+function shouldEmail(ev){ return ev.type==='confirmed' || (ev.type==='verify'&&S.opt.verify) || (ev.type==='watch'&&S.opt.watch); }
+
+/* ------------------------------------------------------------------ alerts out */
+function ascii(s){ return String(s).normalize('NFKD').replace(/[^\x20-\x7E]/g,''); }
+function eventText(ev){
+  const move = (ev.from||ev.to) ? `${ev.from||'IG'} -> ${ev.to||'HY'}` : 'IG -> HY';
+  const name = ev.issuer || 'Unidentified issuer';
+  const links = researchLinks(ev);
+  return [
+    `${TYPE_LABEL[ev.type]}: ${name}`,
+    `Agency: ${ev.agency||'n/a'}   Rating move: ${move}   Date: ${fmtDate(ev.date)}`,
+    ev.sector ? `Sector: ${ev.sector}` : null,
+    ev.summary ? `About: ${ev.summary}` : null,
+    `Headline: ${ev.title}`,
+    ev.sim ? `Source: simulated example (fictional company)` : `Source: ${ev.sources[0]?.url||''}`,
+    `Learn more:`,
+    ...links.map(l=>`  - ${l[0]}: ${l[1]}`)
+  ].filter(Boolean).join('\n');
+}
+/* Email is sent through the app builder's EmailJS account. The builder pastes the three
+   values in Settings → Builder setup and downloads a configured copy, which rewrites the
+   line below. The public key is meant to live in browser code. */
+const APP_EMAILJS = { service:"service_m3kaitu", template:"template_wedf8ux", key:"c1R3ACYw_eFbfKzGI" };
+function ejKeys(){ const u = S.ej||{}; return (u.service&&u.template&&u.key) ? u : (APP_EMAILJS.service&&APP_EMAILJS.template&&APP_EMAILJS.key ? APP_EMAILJS : null); }
+async function timedFetch(url, opts={}, ms=15000){ const c=new AbortController(); const t=setTimeout(()=>c.abort(), ms); try{ return await fetch(url, {...opts, signal:c.signal}); } finally{ clearTimeout(t); } }
+function explainEJ(status, text){
+  const t = String(text||'');
+  if(status===0) return /abort/i.test(t) ? 'EmailJS didn\'t answer within 15 seconds. Try again in a minute.'
+    : 'Couldn\'t reach EmailJS. An ad blocker, privacy extension or school/work firewall is probably blocking api.emailjs.com. Try another browser, or turn the blocker off for this page.';
+  if(/public key|user id|user_id/i.test(t)) return 'The Public Key is wrong. Copy it again from EmailJS → Account → General.';
+  if(/service id|service_id|service not found/i.test(t)) return 'The Service ID is wrong. Copy it from EmailJS → Email Services.';
+  if(/template id|template_id|template not found/i.test(t)) return 'The Template ID is wrong. Copy it from the template\'s Settings tab in EmailJS.';
+  if(status===422 || /recipient|to email|address is empty|to_email/i.test(t)) return 'The template has no recipient. Open the template in EmailJS, put {{to_email}} in the "To Email" field, and click Save.';
+  if(status===412 || /insufficient|scope|gmail_api|invalid_grant|reconnect|authentication/i.test(t)) return 'EmailJS isn\'t allowed to send from your Gmail. In EmailJS → Email Services, open the Gmail service, click Disconnect then Connect Account, and tick "Send email on your behalf" on Google\'s screen.';
+  if(/non-browser|origin|domain/i.test(t) || status===403) return 'EmailJS refused this page. In EmailJS → Account → Security, remove any "allowed domains" restriction. ('+t.slice(0,100)+')';
+  if(status===429) return 'Too many emails too quickly (EmailJS allows about 1 per second). Wait a minute and try again.';
+  if(/limit|quota|upgrade/i.test(t) || status===402 || status===426) return 'The EmailJS free monthly quota is used up.';
+  return 'EmailJS error '+status+': '+t.slice(0,160);
+}
+async function sendViaEmailJS(k, to, subject, body){
+  let r;
+  try{
+    r = await timedFetch('https://api.emailjs.com/api/v1.0/email/send', {method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({service_id:k.service, template_id:k.template, user_id:k.key,
+        template_params:{to_email:to, email:to, subject, message:body}})});
+  }catch(e){ return {ok:false, why:explainEJ(0, e && e.name==='AbortError' ? 'abort' : e && e.message)}; }
+  const t = await r.text().catch(()=>'');
+  return r.ok ? {ok:true} : {ok:false, why:explainEJ(r.status, t)};
+}
+function mailReady(){ return !!ejKeys(); }
+const NOT_SETUP = 'Email isn\'t switched on in this copy of the app yet. Whoever published it needs to finish "Builder setup" in Settings (one time). Alerts still appear on this page.';
+let lastFailed = null;
+async function sendEmail(subject, body){
+  if(!S.email){ log('No email set: skipped email'); return false; }
+  const k = ejKeys();
+  const res = k ? await sendViaEmailJS(k, S.email, subject, body) : {ok:false, why:NOT_SETUP};
+  if(res.ok){
+    log(`Email sent to ${S.email}: ${subject}`);
+    if(!$('#mailFail').classList.contains('hidden')) keepAnchor(()=>$('#mailFail').classList.add('hidden'));
+    return true;
+  }
+  log('Email failed: '+res.why);
+  lastFailed = {subject, body};
+  $('#mailFailMsg').textContent = res.why;
+  $('#mailFailMailto').href = 'mailto:'+enc(S.email)+'?subject='+enc(subject)+'&body='+enc(body.slice(0,1800));
+  keepAnchor(()=>$('#mailFail').classList.remove('hidden'));
+  toast('Email not sent. See the red box on the Alerts tab');
+  return false;
+}
+function builderKeysFromInputs(){
+  const clean = v=>String(v||'').trim().replace(/[^A-Za-z0-9_\-]/g,'');
+  return {service:clean($('#ejService').value), template:clean($('#ejTemplate').value), key:clean($('#ejKey').value)};
+}
+function downloadConfigured(k){
+  const line = 'const APP_EMAILJS = ' + JSON.stringify(k).replace(/"(\w+)":/g,'$1:') + ';';
+  const html = PRISTINE_HTML.replace(/const APP_EMAILJS = \{[^}]*\};/, line);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([html], {type:'text/html'}));
+  a.download = 'fallen-angel-monitor.html'; document.body.appendChild(a); a.click(); a.remove();
+}
+function paintMailStatus(){
+  const el = $('#mailStatus'); if(!el) return;
+  const built = APP_EMAILJS.service && APP_EMAILJS.template && APP_EMAILJS.key;
+  if(mailReady()){
+    el.style.borderColor = 'var(--green)';
+    el.innerHTML = '<b style="color:var(--green)">✓ Email delivery is switched on.</b> <span class="meta">'+(built ? 'This copy has email built in.' : 'Using the keys entered in Builder setup on this computer. Click "Download configured app" so it works for everyone.')+'</span>';
+  } else {
+    el.style.borderColor = 'var(--amber)';
+    el.innerHTML = '<b style="color:var(--amber)">Email isn\'t switched on in this copy yet.</b> <span class="meta">If you published this app, open <b>Builder setup</b> at the bottom of this tab (one time, about 5 minutes). Until then, alerts still appear on this page and as desktop pop-ups.</span>';
+  }
+}
+async function notifyNew(evs){
+  const send = evs.filter(e=>shouldEmail(e) && !e.emailed);
+  if(!send.length) return;
+  await Promise.all(send.map(e=>enrich(e).catch(()=>{})));
+  if(S.opt.desktop && 'Notification' in window && Notification.permission==='granted'){
+    for(const e of send.slice(0,5)){ try{ const n = new Notification('Fallen angel: '+(e.issuer||'new downgrade'), {body:`${e.agency||''} ${e.from||''}${e.from?' → ':''}${e.to||'HY'} · ${e.title}`}); n.onclick=()=>window.focus(); }catch(err){} }
+  }
+  const pre = send.every(e=>e.sim) ? '[EXAMPLE] ' : '';
+  const subject = pre + (send.length===1 ? `Fallen angel alert: ${send[0].issuer||'IG -> HY downgrade'} (${send[0].agency||'agency n/a'})` : `Fallen angel digest: ${send.length} IG -> HY downgrades`);
+  const body = send.map(eventText).join('\n\n----------------\n\n') + '\n\nSent by Fallen Angel Monitor. Always confirm on the rating agency site.';
+    const ok = await sendEmail(subject, body);
+  if(ok) send.forEach(e=>e.emailed=true);
+  saveState();
+}
+
+/* ------------------------------------------------------------------ enrichment */
+const WIKI = {};
+async function enrich(ev){
+  if(!ev.issuer || ev.summary !== undefined) return;
+  const k = ev.issuer;
+  if(!WIKI[k]){
+    WIKI[k] = (async()=>{
+      const s = await (await fetch('https://en.wikipedia.org/w/api.php?action=opensearch&limit=1&namespace=0&format=json&origin=*&search='+enc(k))).json();
+      const title = s?.[1]?.[0]; if(!title) return null;
+      const p = await (await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/'+enc(title.replace(/ /g,'_')))).json();
+      return {summary:p.extract, thumb:p.thumbnail?.source, url:p.content_urls?.desktop?.page, desc:p.description};
+    })().catch(()=>null);
+  }
+  const w = await WIKI[k];
+  ev.summary = w?.summary ? w.summary.split(/(?<=\.)\s/).slice(0,2).join(' ') : null;
+  ev.thumb = w?.thumb || null; ev.wiki = w?.url || null; ev.desc = w?.desc || null;
+  saveState();
+}
+function researchLinks(ev){
+  const n = ev.issuer || ev.title;
+  const L = [
+    ['Yahoo Finance', 'https://finance.yahoo.com/lookup?s='+enc(ev.ticker||n)],
+    ['SEC EDGAR filings', 'https://www.sec.gov/edgar/search/#/q='+enc('"'+n+'"')],
+    ['FINRA bond data (TRACE)', 'https://www.finra.org/finra-data/fixed-income/corp-and-agency'],
+    ['News coverage', 'https://news.google.com/search?q='+enc(n+' rating downgrade')],
+  ];
+  const ag = ev.agency;
+  if(!ag || ag==="S&P") L.push(['S&P Global Ratings', 'https://www.google.com/search?q='+enc('site:spglobal.com/ratings '+n)]);
+  if(!ag || ag==="Moody's") L.push(["Moody's", 'https://www.google.com/search?q='+enc('site:moodys.com '+n)]);
+  if(!ag || ag==="Fitch") L.push(['Fitch Ratings', 'https://www.fitchratings.com/search?query='+enc(n)]);
+  if(ev.wiki) L.push(['Wikipedia', ev.wiki]);
+  return L;
+}
+
+/* ------------------------------------------------------------------ polling loop */
+let timer=null, running=false;
+async function check({manual=false}={}){
+  if(running) return; running=true; setStatus('checking');
+  const all = []; const errs = [];
+  if(S.src.gdelt){ try{ all.push(...await fetchGdelt({timespan: S.baselineDone ? '1d' : '3d'})); }catch(e){ errs.push('GDELT: '+e.message); } }
+  if(S.src.gnews){ try{ all.push(...await fetchGnews()); }catch(e){ errs.push('Google News: '+e.message); } }
+  let fresh = ingest(all, {baseline: !S.baselineDone});
+  if(S.src.file && fileHandle){ try{ fresh = fresh.concat(await readWatchedFile()); }catch(e){ errs.push('Watched file: '+e.message); } }
+  S.baselineDone = true;
+  S.lastCheck = Date.now();
+  log(`Checked ${all.length} articles${errs.length?' ('+errs.join('; ')+')':''}; ${fresh.length} new alert(s)`);
+  if(fresh.length){ toast(`${fresh.length} new alert(s)`); fresh.forEach(e=>e.isNew=true); }
+  saveState(); render();
+  await notifyNew(fresh);
+  running=false; schedule(); setStatus(errs.length && !all.length ? 'error' : null);
+  render();
+}
+function schedule(){
+  clearTimeout(timer);
+  if(!S.monitoring){ S.nextCheck=null; return; }
+  const ms = Math.max(5, +S.interval||15)*60000;
+  S.nextCheck = Date.now()+ms; saveState();
+  timer = setTimeout(()=>check(), ms);
+}
+function setStatus(mode){
+  const dot=$('#statusDot'), txt=$('#statusText');
+  dot.className='dot';
+  if(mode==='checking'){ dot.classList.add('live'); txt.textContent='Checking…'; return; }
+  if(mode==='error'){ dot.classList.add('err'); txt.textContent='Sources unreachable, will retry'; return; }
+  if(S.monitoring){ dot.classList.add('live'); txt.textContent='Live · emailing '+(S.email||'(no email)'); }
+  else txt.textContent='Not monitoring';
+}
+async function start(){
+  readSettings();
+  if(!S.email || !/^\S+@\S+\.\S+$/.test(S.email)){ toast('Enter a valid email first'); $('#email').focus(); return; }
+  if(S.opt.desktop && 'Notification' in window && Notification.permission==='default'){ try{ await Notification.requestPermission(); }catch(e){} }
+  S.monitoring=true; S.startedAt = S.startedAt||Date.now(); saveState();
+  log('Monitoring started for '+S.email+' every '+S.interval+' min'); toast('Monitoring started');
+  switchTab('alerts'); setStatus(); check();
+}
+function stop(){ S.monitoring=false; clearTimeout(timer); S.nextCheck=null; saveState(); setStatus(); render(); log('Monitoring stopped'); }
+
+/* ------------------------------------------------------------------ Bloomberg / CSV */
+function parseCSV(text){
+  const rows=[]; let row=[], f='', q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){ if(c==='"'){ if(text[i+1]==='"'){ f+='"'; i++; } else q=false; } else f+=c; }
+    else if(c==='"') q=true;
+    else if(c===','){ row.push(f); f=''; }
+    else if(c==='\n'||c==='\r'){ if(c==='\r'&&text[i+1]==='\n') i++; row.push(f); rows.push(row); row=[]; f=''; }
+    else f+=c;
+  }
+  if(f!==''||row.length){ row.push(f); rows.push(row); }
+  return rows.filter(r=>r.some(x=>x.trim()!==''));
+}
+function importCSV(text, label){
+  const rows = parseCSV(text.replace(/^﻿/,'')); if(rows.length<2) throw new Error('CSV has no data rows');
+  const H = rows[0].map(h=>h.trim().toLowerCase());
+  const col = (...names)=>H.findIndex(h=>names.some(n=>h===n || h.replace(/[^a-z]/g,'')===n.replace(/[^a-z]/g,'')));
+  const ci = {date:col('date','as_of','asof','as of'), tk:col('ticker','security','id','cusip','isin','bbg ticker'), nm:col('name','issuer','short_name','issuer name','company'),
+              sp:col('rtg_sp','s&p','sp','rtg_sp_lt_lc_issuer_credit'), m:col('rtg_moody','moody','moodys',"moody's",'rtg_moody_long_term'), f:col('rtg_fitch','fitch'), sec:col('industry_sector','sector','industry','gics_sector_name')};
+  if(ci.tk<0 && ci.nm<0) throw new Error('Need a Ticker or Name column');
+  if(ci.sp<0 && ci.m<0 && ci.f<0) throw new Error('Need at least one of RTG_SP, RTG_MOODY, RTG_FITCH');
+  const today = new Date().toISOString().slice(0,10); let n=0;
+  for(const r of rows.slice(1)){
+    const tk = (ci.tk>=0 ? r[ci.tk] : r[ci.nm]||'').trim(); if(!tk) continue;
+    let d = ci.date>=0 ? (r[ci.date]||'').trim() : today; const pd = Date.parse(d); d = isNaN(pd) ? today : new Date(pd).toISOString().slice(0,10);
+    const rec = S.bbg.rows[tk] || (S.bbg.rows[tk] = {name:'', sector:'', hist:{sp:[], m:[], f:[]}});
+    if(ci.nm>=0 && r[ci.nm]) rec.name = r[ci.nm].trim();
+    if(ci.sec>=0 && r[ci.sec]) rec.sector = r[ci.sec].trim();
+    for(const ag of ['sp','m','f']){
+      if(ci[ag]<0) continue; const raw = (r[ci[ag]]||'').trim(); if(!raw || /^#N\/A/i.test(raw)) continue;
+      const v = normRating(raw) || (/^(NR|WR|WD|N\.?A\.?)$/i.test(raw) ? 'NR' : null); if(!v) continue;
+      const h = rec.hist[ag]; const ex = h.find(x=>x[0]===d); if(ex) ex[1]=v; else h.push([d,v]);
+      h.sort((a,b)=>a[0]<b[0]?-1:1); n++;
+    }
+  }
+  log(`Imported ${n} rating observations from ${label}`);
+  return detectBbgTransitions();
+}
+const AG_FULL = {sp:'S&P', m:"Moody's", f:'Fitch'};
+function detectBbgTransitions(){
+  const fresh=[];
+  for(const [tk,rec] of Object.entries(S.bbg.rows)){
+    for(const ag of ['sp','m','f']){
+      const h = rec.hist[ag];
+      for(let i=1;i<h.length;i++){
+        const a=h[i-1][1], b=h[i][1];
+        if(grade(a)==='IG' && grade(b)==='HY'){
+          const id = 'bbg|'+tk+'|'+ag+'|'+h[i][0];
+          if(S.events[id]) continue;
+          const date = Date.parse(h[i][0]+'T12:00:00Z');
+          const ev = {id, ik:issuerKey(rec.name||tk), issuer:rec.name||tk, ticker:tk, sector:rec.sector, agency:AG_FULL[ag], from:a, to:b, type:'confirmed',
+            title:`${AG_FULL[ag]} rating moved ${a} → ${b} (Bloomberg snapshot ${h[i-1][0]} → ${h[i][0]})`, date, firstSeen:Date.now(),
+            sources:[{title:'Bloomberg rating snapshot', url:'', domain:'Bloomberg export', date, via:'Bloomberg'}], historical: Date.now()-date > 7*864e5, emailed:false, origin:'bbg'};
+          S.events[id]=ev; if(!ev.historical) fresh.push(ev);
+        }
+      }
+    }
+    const dates = [...new Set(['sp','m','f'].flatMap(ag=>rec.hist[ag].map(x=>x[0])))].sort();
+    const at = (ag,d)=>{ let v=null; for(const [dd,r] of rec.hist[ag]) if(dd<=d) v=r; return v; };
+    for(let i=1;i<dates.length;i++){
+      const p = indexRating(at('sp',dates[i-1]),at('m',dates[i-1]),at('f',dates[i-1])), c = indexRating(at('sp',dates[i]),at('m',dates[i]),at('f',dates[i]));
+      if(grade(p)==='IG' && grade(c)==='HY'){
+        const id='bbg|'+tk+'|index|'+dates[i]; if(S.events[id]) continue;
+        const date = Date.parse(dates[i]+'T12:00:00Z');
+        const ev = {id, ik:issuerKey(rec.name||tk), issuer:rec.name||tk, ticker:tk, sector:rec.sector, agency:'Index rating (middle of 3)', from:p, to:c, type:'confirmed',
+          title:`Index rating crossed to high yield: ${p} → ${c}. Bonds exit IG indices at month-end`, date, firstSeen:Date.now(),
+          sources:[{title:'Bloomberg rating snapshot', url:'', domain:'Bloomberg export', date, via:'Bloomberg'}], historical: Date.now()-date > 7*864e5, emailed:false, origin:'bbg'};
+        S.events[id]=ev; if(!ev.historical) fresh.push(ev);
+      }
+    }
+  }
+  saveState(); return fresh;
+}
+let fileHandle=null, fileLastMod=0;
+async function readWatchedFile(){
+  const f = await fileHandle.getFile();
+  if(f.lastModified===fileLastMod) return [];
+  fileLastMod = f.lastModified;
+  const fr = importCSV(await f.text(), f.name);
+  $('#watchStatus').textContent = `Watching ${f.name}, last read ${new Date().toLocaleTimeString()}`;
+  return fr;
+}
+function renderBbg(){
+  const tb = $('#bbgTable tbody'); const rows = Object.entries(S.bbg.rows);
+  if(!rows.length){ tb.innerHTML = `<tr><td colspan="7" style="color:var(--muted)">No Bloomberg data yet. Import a CSV or load the demo history.</td></tr>`; return; }
+  const last = h=>h.length?h[h.length-1]:[null,null];
+  tb.innerHTML = rows.map(([tk,r])=>{
+    const sp=last(r.hist.sp), m=last(r.hist.m), f=last(r.hist.f);
+    const idx = indexRating(sp[1],m[1],f[1]); const asof=[sp[0],m[0],f[0]].filter(Boolean).sort().pop()||'';
+    const ns = [sp[1],m[1],f[1]].map(notch);
+    let st = '<span class="badge b-market">Stable</span>';
+    if(grade(idx)==='HY' && ns.some(n=>n!=null&&n<=IG_CUTOFF)) st='<span class="badge b-verify">Split rated</span>';
+    else if(grade(idx)==='HY') st='<span class="badge b-confirmed">High yield</span>';
+    else if(notch(idx)===IG_CUTOFF) st='<span class="badge b-watch">One notch above HY</span>';
+    if(Object.values(S.events).some(e=>e.origin==='bbg'&&e.ticker===tk)) st += ' <span class="badge b-confirmed">Fallen angel</span>';
+    const cell = v=>v?rtChip(v):'<span style="color:var(--muted)">—</span>';
+    return `<tr><td><b>${esc(r.name||tk)}</b><div class="meta">${esc(tk)}${r.sector?' · '+esc(r.sector):''}</div></td><td>${esc(asof)}</td><td>${cell(sp[1])}</td><td>${cell(m[1])}</td><td>${cell(f[1])}</td><td>${cell(idx)}</td><td>${st}</td></tr>`;
+  }).join('');
+}
+
+/* ------------------------------------------------------------------ backfill */
+async function backfill(){
+  const s = $('#hStart').value, e = $('#hEnd').value; const st = $('#backfillStatus');
+  if(!s||!e){ st.textContent='Pick both dates.'; return; }
+  let a = new Date(s+'T00:00:00Z'), b = new Date(e+'T23:59:59Z');
+  if(a<new Date('2017-01-01')) a = new Date('2017-01-01T00:00:00Z');
+  if(b>new Date()) b = new Date();
+  if(a>=b){ st.textContent='Start must be before end.'; return; }
+  $('#backfillBtn').disabled=true; let total=0, found=0;
+  // GDELT returns ≤250 per query, so walk the range in ~2-week windows
+  const WIN = 14*864e5; const chunks=[]; for(let t=a.getTime(); t<b.getTime(); t+=WIN) chunks.push([new Date(t), new Date(Math.min(t+WIN-1000, b.getTime()))]);
+  for(let i=0;i<chunks.length;i++){
+    st.textContent = `Fetching window ${i+1} of ${chunks.length} (${chunks[i][0].toISOString().slice(0,10)})… ${found} events so far`;
+    try{
+      const arts = await fetchGdelt({start:chunks[i][0], end:chunks[i][1]}); total += arts.length;
+      const before = Object.keys(S.events).length; ingest(arts, {historical:true}); found += Object.keys(S.events).length-before;
+      saveState(); render();
+    }catch(err){ st.textContent = 'Error: '+err.message; log('Backfill error: '+err.message); break; }
+  }
+  st.textContent = `Done. Scanned ${total} articles and added ${found} events. See the Alerts tab.`;
+  log(`Backfill ${s} → ${e}: ${total} articles, ${found} events`);
+  $('#backfillBtn').disabled=false;
+}
+
+/* ------------------------------------------------------------------ rendering */
+function render(force=false){
+  const evs = Object.values(S.events);
+  const q = ($('#search').value||'').toLowerCase();
+  const list = evs.filter(e=>S.filters[e.type]).filter(e=>!q || (e.issuer||'').toLowerCase().includes(q) || e.title.toLowerCase().includes(q))
+    .sort((x,y)=> (y.date-x.date));
+  const d30 = Date.now()-30*864e5;
+  $('#stConfirmed').textContent = evs.filter(e=>e.type==='confirmed' && e.date>=d30).length;
+  $('#stWatch').textContent = evs.filter(e=>(e.type==='watch'||e.type==='verify') && e.date>=d30).length;
+  $('#stLast').textContent = fmtTime(S.lastCheck);
+  $('#stNext').textContent = S.monitoring ? fmtTime(S.nextCheck) : 'Paused';
+  $('#onboard').classList.toggle('hidden', !!S.monitoring);
+  keepAnchor(()=>renderFeed(list.slice(0,300), evs.length, force));
+  document.querySelectorAll('.chip[data-f]').forEach(c=>c.classList.toggle('on', !!S.filters[c.dataset.f]));
+  renderBbg();
+  $('#log').textContent = S.log.join('\n');
+}
+/* Cards are updated in place (keyed by id), never rebuilt wholesale, so an open
+   "Company info" panel survives. While the user is reading (a panel is open or the
+   feed is scrolled), new alerts wait behind a "Show N new alerts" bar instead of
+   being inserted above what they're reading. */
+const shownIds = new Set(), pendingIds = new Set(), openInfo = new Set();
+let firstFeedRender = true;
+function cardSig(e){ return JSON.stringify([e.type,e.issuer,e.agency,e.from,e.to,e.sector,e.date,e.sources.length,e.emailed,e.sim,e.historical]); }
+function isReading(){ const f=$('#feed'); return openInfo.size>0 || (f.children.length>0 && f.getBoundingClientRect().top < -40); }
+function keepAnchor(fn){
+  // pin the card the user is looking at so nothing above it moves the page
+  const cards = [...document.querySelectorAll('#feed .card')];
+  const anchor = cards.find(c=>openInfo.has(c.dataset.id)) || cards.find(c=>c.getBoundingClientRect().bottom > 0);
+  const id = anchor && anchor.dataset.id, before = anchor ? anchor.getBoundingClientRect().top : 0;
+  fn();
+  if(id && window.scrollY > 0){ const now = document.querySelector(`#feed .card[data-id="${CSS.escape(id)}"]`); if(now){ const d = now.getBoundingClientRect().top - before; if(Math.abs(d)>1) window.scrollBy(0, d); } }
+}
+function renderFeed(list, total, force){
+  const feed = $('#feed');
+  if(!list.length){
+    shownIds.clear(); pendingIds.clear();
+    feed.innerHTML = `<div class="empty">${total ? 'No alerts match these filters.' : (S.monitoring ? 'Watching for downgrades. Nothing detected yet.' : 'No alerts yet. Start monitoring, run a historical backfill, or try the <b>Run examples</b> tab.')}</div>`;
+    $('#pendingBar').classList.add('hidden'); return;
+  }
+  feed.querySelector('.empty')?.remove();
+  const reading = !force && !firstFeedRender && shownIds.size>0 && isReading();
+  firstFeedRender = false;
+  const want = new Set(list.map(e=>e.id));
+  for(const id of [...pendingIds]) if(!want.has(id)) pendingIds.delete(id);
+  for(const e of list){ if(!shownIds.has(e.id)){ if(reading) pendingIds.add(e.id); else { shownIds.add(e.id); pendingIds.delete(e.id); } } }
+  // remove cards that were dismissed or filtered out
+  for(const el of [...feed.children]){ const id = el.dataset.id; if(!want.has(id) || !shownIds.has(id)){ el.remove(); shownIds.delete(id); openInfo.delete(id); } }
+  for(const id of [...shownIds]) if(!want.has(id)) shownIds.delete(id);
+  // insert / update in order, touching only what changed
+  let i = 0;
+  for(const e of list){
+    if(!shownIds.has(e.id)) continue;
+    let el = feed.querySelector(`:scope > .card[data-id="${CSS.escape(e.id)}"]`);
+    const sig = cardSig(e);
+    if(!el){ el = htmlToEl(cardHTML(e)); el._sig = sig; }
+    else if(el._sig !== sig){
+      const fresh = htmlToEl(cardHTML(e)); fresh._sig = sig;
+      fresh.querySelector('.infobox').replaceWith(el.querySelector('.infobox'));       // keep the open panel as-is
+      const od = el.querySelector('details'), nd = fresh.querySelector('details'); if(od && nd) nd.open = od.open;
+      el.replaceWith(fresh); el = fresh;
+    }
+    el.classList.toggle('isnew', !!e.isNew);
+    if(feed.children[i] !== el) feed.insertBefore(el, feed.children[i] || null);
+    i++;
+  }
+  const bar = $('#pendingBar');
+  bar.classList.toggle('hidden', pendingIds.size===0);
+  bar.textContent = `▲ ${pendingIds.size} new alert${pendingIds.size===1?'':'s'}. Click to show`;
+}
+function htmlToEl(h){ const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstElementChild; }
+function cardHTML(e){
+  const move = (e.from||e.to) ? `${e.from?rtChip(e.from):'<span class="rt ig">IG</span>'} → ${e.to?rtChip(e.to):'<span class="rt hy">HY</span>'}` : (e.type==='market'?'':'<span class="rt ig">IG</span> → <span class="rt hy">HY</span>');
+  const srcs = e.sources.slice().sort((a,b)=>a.date-b.date);
+  const main = srcs[0];
+  const tags = [e.sim?'<span class="badge b-src">Example</span>':'', e.historical?'<span class="badge b-src">Historical</span>':'', e.origin==='bbg'?'<span class="badge b-src">Bloomberg</span>':'', e.emailed?'<span class="badge b-src">Emailed ✓</span>':''].join(' ');
+  return `<article class="card ${e.type} ${e.isNew?'isnew':''}" data-id="${esc(e.id)}">
+    <div class="top">
+      <div class="row"><span class="badge b-${e.type}">${TYPE_LABEL[e.type]}</span><span class="issuer">${esc(e.issuer|| (e.type==='market'?'Credit market':'Issuer not parsed. See headline'))}</span> ${move}</div>
+      <div class="row">${tags}</div>
+    </div>
+    <div class="meta">${esc(e.agency||'Agency not stated')} · ${fmtDate(e.date)}${e.sector?' · '+esc(e.sector):''}${e.sources.length>1?' · '+e.sources.length+' sources':''}</div>
+    <div class="headline">${main&&main.url&&!main.url.startsWith('sim:')?`<a href="${esc(main.url)}" target="_blank" rel="noopener">${esc(e.title)}</a>`:esc(e.title)} ${main&&main.domain?`<span class="meta">(${esc(main.domain)})</span>`:''}</div>
+    ${srcs.length>1?`<details><summary class="meta" style="cursor:pointer">All sources</summary><ul class="srcs">${srcs.map(s=>`<li>${s.url&&!s.url.startsWith('sim:')?`<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.title)}</a>`:esc(s.title)} · ${esc(s.domain||s.via)} · ${fmtDate(s.date)}</li>`).join('')}</ul></details>`:''}
+    <div class="row" style="margin-top:8px">
+      ${e.type!=='market'?'<button class="btn sm" data-act="info">Company info &amp; links</button>':''}
+      <button class="btn sm" data-act="dismiss">Dismiss</button>
+    </div>
+    <div class="infobox"></div>
+  </article>`;
+}
+async function showInfo(card, ev){
+  const box = card.querySelector('.infobox');
+  if(box.innerHTML){ box.innerHTML=''; openInfo.delete(ev.id); return; }
+  openInfo.add(ev.id);
+  box.innerHTML = '<div class="info">Loading company profile…</div>';
+  await enrich(ev).catch(()=>{});
+  // the card element may have been refreshed while loading, but the infobox node is carried over
+  const links = researchLinks(ev).map(([n,u])=>`<a href="${esc(u)}" target="_blank" rel="noopener">${esc(n)} ↗</a>`).join('');
+  const why = ev.type==='confirmed' ? 'This issuer moved below BBB-/Baa3. IG-only funds may have to sell, spreads typically widen toward HY levels, and if the index rating (middle of S&P, Moody\'s and Fitch) also crosses, the bonds leave IG indices at month-end.'
+            : ev.type==='verify' ? 'The headline shows a downgrade to a high-yield rating but not the prior rating. Check the agency release to confirm the issuer was investment grade before.'
+            : 'Flagged as at risk of losing investment grade. Watch for a follow-up action, typically within 90 days of a negative watch or review.';
+  box.innerHTML = `<div class="info">
+     ${ev.thumb?`<img src="${esc(ev.thumb)}" alt="">`:''}
+     <b>${esc(ev.issuer||'')}</b>${ev.desc?` <span class="meta">· ${esc(ev.desc)}</span>`:''}
+     <p style="margin:6px 0">${ev.summary?esc(ev.summary):'<span class="meta">No encyclopedia profile found. Use the links below.</span>'}</p>
+     <p style="margin:6px 0" class="meta"><b>Why it matters:</b> ${esc(why)}</p>
+     <div class="links">${links}</div></div>`;
+  if(!openInfo.has(ev.id)) box.innerHTML = '';
+}
+
+/* ------------------------------------------------------------------ settings UI */
+function fillSettings(){
+  $('#email').value=S.email; $('#quickEmail').value=S.email; $('#interval').value=S.interval;
+  $('#optVerify').checked=S.opt.verify; $('#optWatch').checked=S.opt.watch; $('#optDesktop').checked=S.opt.desktop; $('#optBaseline').checked=S.opt.baseline;
+  $('#srcGdelt').checked=S.src.gdelt; $('#srcGnews').checked=S.src.gnews; $('#srcFile').checked=S.src.file;
+  $('#ejService').value=S.ej.service; $('#ejTemplate').value=S.ej.template; $('#ejKey').value=S.ej.key;
+  paintMailStatus();
+}
+function readSettings(){
+  S.email = ($('#email').value||$('#quickEmail').value||'').trim();
+  S.interval = Math.min(120, Math.max(5, +$('#interval').value||15));
+  S.opt = {verify:$('#optVerify').checked, watch:$('#optWatch').checked, desktop:$('#optDesktop').checked, baseline:$('#optBaseline').checked};
+  S.src = {gdelt:$('#srcGdelt').checked, gnews:$('#srcGnews').checked, file:$('#srcFile').checked};
+  S.ej = builderKeysFromInputs();
+  saveState(); fillSettings();
+}
+function switchTab(name){
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on', b.dataset.tab===name));
+  document.querySelectorAll('section[id^=tab-]').forEach(s=>s.classList.toggle('hidden', s.id!=='tab-'+name));
+  try{ localStorage.setItem('fam_tab', name); }catch(e){}
+}
+function exportCSV(){
+  const cols = ['date','type','issuer','ticker','agency','from','to','sector','headline','source_url','sources','emailed','historical','example'];
+  const rows = Object.values(S.events).sort((a,b)=>b.date-a.date).map(e=>[new Date(e.date).toISOString().slice(0,10), e.type, e.issuer||'', e.ticker||'', e.agency||'', e.from||'', e.to||'', e.sector||'', e.title, e.sources[0]?.url||'', e.sources.length, e.emailed, !!e.historical, !!e.sim]);
+  const csv = [cols, ...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='fallen_angels_'+new Date().toISOString().slice(0,10)+'.csv'; a.click();
+}
+
+/* ------------------------------------------------------------------ illustrative examples */
+const EX_PROFILES = {
+  'northwind brands': {sector:'Consumer staples', desc:'Fictional packaged-food company', summary:'Fictional packaged-food maker with about $14B of debt. It was rated BBB- until it funded a large acquisition mostly with new bonds, pushing leverage above 4.5x EBITDA.'},
+  'harbor point energy': {sector:'Energy (E&P)', desc:'Fictional oil & gas producer', summary:'Fictional U.S. shale producer. Free cash flow depends on oil prices, and Moody\'s cited a sustained drop in crude as the reason leverage would stay too high for investment grade.'},
+  'cobalt freight': {sector:'Transportation', desc:'Fictional freight and logistics group', summary:'Fictional trucking and logistics company hit by falling freight volumes and a debt-funded fleet expansion.'},
+  'lakeside media': {sector:'Communications', desc:'Fictional broadcast and streaming company', summary:'Fictional TV and streaming business with falling ad revenue and heavy content spending. It was placed on review before the downgrade, the usual path for a fallen angel.'},
+  'granite cruise lines': {sector:'Leisure', desc:'Fictional cruise operator', summary:'Fictional cruise operator whose revenue collapsed in a simulated travel shutdown.'},
+  'meridian auto': {sector:'Autos', desc:'Fictional automaker', summary:'Fictional automaker with a large captive finance arm. Fallen-angel automakers can push tens of billions of dollars of bonds into the HY index at once.'},
+  'redwood department stores': {sector:'Retail', desc:'Fictional department-store chain', summary:'Fictional department-store chain with closed stores and sliding sales.'},
+  'atlas aerospace': {sector:'Industrials', desc:'Fictional aircraft-parts supplier', summary:'Fictional aerospace supplier hit by grounded fleets and order cancellations.'},
+  'pinecrest hotels': {sector:'Lodging', desc:'Fictional hotel REIT', summary:'Fictional hotel owner whose occupancy fell sharply in the simulated shock.'},
+  'summit paper': {sector:'Basic materials', desc:'Fictional paper and packaging company', summary:'Fictional paper producer rated differently by the three agencies.'}
+};
+Object.keys(EX_PROFILES).forEach(k=>{ const nk = issuerKey(k); if(nk!==k) EX_PROFILES[nk]=EX_PROFILES[k]; });
+
+const SCENARIOS = [
+  {id:'basic', title:'Classic fallen angel', desc:'S&P cuts a BBB- food company to junk after a debt-funded acquisition. This is the core case: one headline, one confirmed alert, one email.',
+   steps:[{say:'News breaks: <b>S&amp;P cuts Northwind Brands to junk</b>. The screener spots the agency, the issuer and the phrase "to junk", which signals an IG → HY move.', heads:["S&P cuts Northwind Brands to junk after debt-funded acquisition"]}]},
+  {id:'notch', title:'Exact rating move (Moody\'s)', desc:'The headline states the notches: Baa3 → Ba1. The screener reads both ratings and sees they straddle the investment-grade line.',
+   steps:[{say:'Moody\'s moves Harbor Point Energy from <b>Baa3</b> (lowest IG notch) to <b>Ba1</b> (highest HY notch).', heads:["Moody's downgrades Harbor Point Energy to Ba1 from Baa3 on weaker oil prices"]}]},
+  {id:'fitch', title:'Agency press-release format', desc:'A Fitch-style release: "Downgrades X to \'BB+\'; Outlook Negative". The prior rating isn\'t stated, but BB+ is the top junk notch, so the issuer must have come from IG.',
+   steps:[{say:'Fitch\'s release names only the new rating, <b>BB+</b>. The only way to be <i>downgraded</i> to BB+ is from investment grade, so it\'s marked Confirmed.', heads:["Fitch Downgrades Cobalt Freight to 'BB+'; Outlook Negative"]}]},
+  {id:'watch', title:'Review, then downgrade', desc:'An issuer is first placed on review (a Watch alert). A few seconds later the agency cuts it, and the same alert becomes Confirmed and is emailed.',
+   steps:[{say:'Step 1 of 2: <b>Moody\'s places Lakeside Media on review for downgrade to junk</b>. This is a Watch alert: the issuer is still IG.', heads:["Moody's places Lakeside Media on review for downgrade to junk"]},
+          {wait:5000, say:'Step 2 of 2: weeks later (compressed to seconds), <b>Moody\'s cuts Lakeside Media to junk</b>. The existing alert becomes Confirmed rather than a duplicate.', heads:["Moody's cuts Lakeside Media to junk, citing falling ad revenue"]}]},
+  {id:'wave', title:'Downgrade wave (digest email)', desc:'A market shock, like March 2020, hits several issuers in one news cycle. Five Confirmed alerts arrive together and are sent as one digest email.',
+   steps:[{say:'A simulated shock triggers <b>five downgrades in one news cycle</b> across S&amp;P, Moody\'s and Fitch. They go out as a single digest email instead of five.', heads:[
+     "S&P cuts Granite Cruise Lines to junk as bookings collapse",
+     "S&P lowers Meridian Auto to BB+ from BBB-, pushing $30 billion of bonds into high yield",
+     "Moody's downgrades Redwood Department Stores to Ba1 from Baa3",
+     "Atlas Aerospace downgraded to junk by Fitch",
+     "Pinecrest Hotels loses investment grade rating at S&P"]}]},
+  {id:'noise', title:'Noise filter', desc:'Six headlines that look similar but are NOT fallen angels: an upgrade, an affirmation, an IG → IG cut, a cut deeper into junk, and two speculative stories. None should raise a Confirmed alert.',
+   steps:[{say:'These headlines are deliberately similar to real fallen angels. A good screener <b>ignores</b> them or at most flags a Watch.', noise:true, heads:[
+     "Moody's upgrades Northwind Brands to Baa3, back to investment grade",
+     "Fitch affirms Meridian Auto at 'BBB-'; Outlook Stable",
+     "Fitch Downgrades Harbor Point Energy to 'BBB-'; Outlook Stable",
+     "S&P cuts Granite Cruise Lines deeper into junk",
+     "Atlas Aerospace could be cut to junk, analysts warn",
+     "Why fallen angels could outperform in 2027"]}]},
+  {id:'index', title:'Index migration (Bloomberg snapshots)', desc:'Three daily Bloomberg rating snapshots for a split-rated issuer. S&P cuts first, but the index rating (middle of three) stays IG. When Moody\'s follows, the index rating crosses and the bonds leave IG indices.',
+   bbg:[
+     {say:'Snapshot 1: Summit Paper is <b>BBB- / Baa3 / BBB-</b>. All three agencies rate it IG, one notch above junk.', sp:'BBB-', m:'Baa3', f:'BBB-', ago:2},
+     {wait:4500, say:'Snapshot 2: <b>S&amp;P cuts to BB+</b>. That raises an agency-level alert, but the index rating is the middle of (BB+, Baa3, BBB-) = <b>BBB-</b>, so the bonds stay in IG indices for now.', sp:'BB+', m:'Baa3', f:'BBB-', ago:1},
+     {wait:5500, say:'Snapshot 3: <b>Moody\'s cuts to Ba1</b>. Two of three agencies are now HY, so the index rating drops to <b>BB+</b>. This is the moment forced selling hits: the bonds exit IG indices at month-end.', sp:'BB+', m:'Ba1', f:'BBB-', ago:0}]}
+];
+const exHits = {}; // scenario id -> result html
+function narr(title, html){ keepAnchor(()=>{ $('#demoBanner').classList.remove('hidden'); $('#demoTitle').textContent = title; $('#demoNarr').innerHTML = html; }); }
+async function runScenario(sc, {guided=false, idx=0, total=1}={}){
+  switchTab('alerts'); for(const k in S.filters) S.filters[k] = k!=='market' || sc.id==='noise';
+  const title = (guided?`Guided demo ${idx+1}/${total}: `:'Example: ')+sc.title;
+  const lines = []; const sendMail = $('#exEmail').checked;
+  if(sendMail && !S.email){ toast('Add your email in Settings to send example emails'); }
+  const steps = sc.bbg || sc.steps; const noise = steps.some(x=>x.noise); let mailed = 0;
+  for(const st of steps){
+    if(st.wait){ narr(title, lines.join('')+`<p class="meta">…next step in ${Math.round(st.wait/1000)}s</p>`); await sleep(st.wait); }
+    let fresh = [], res = '';
+    if(sc.bbg){
+      const d = new Date(Date.now()-st.ago*864e5).toISOString().slice(0,10);
+      fresh = importCSV(`Date,Ticker,Name,RTG_SP,RTG_MOODY,RTG_FITCH,INDUSTRY_SECTOR\n${d},EX-SUMMIT,Summit Paper Co,${st.sp},${st.m},${st.f},Basic Materials`, 'example snapshot');
+      Object.values(S.events).filter(e=>e.ticker==='EX-SUMMIT').forEach(e=>{ e.sim=true; const pr=EX_PROFILES['summit paper']; e.summary=pr.summary; e.desc=pr.desc; });
+      const idxR = indexRating(st.sp, st.m, st.f);
+      res = `<div class="meta">S&amp;P ${rtChip(st.sp)} Moody's ${rtChip(st.m)} Fitch ${rtChip(st.f)} → index rating ${rtChip(idxR)} · ${fresh.length ? '<b>'+fresh.length+' new alert(s): '+fresh.map(e=>esc(e.agency)).join(', ')+'</b>' : 'no alert'}</div>`;
+    } else {
+      const arts = st.heads.map((h,i)=>({title:h, url:`sim:${sc.id}-${Date.now()}-${i}`, domain:'Simulated newswire', date:Date.now(), via:'Example'}));
+      fresh = ingest(arts, {sim:true});
+      res = '<ul class="srcs" style="color:var(--ink)">' + st.heads.map(h=>{ const c = classify(h);
+        const verdict = c ? `<span class="badge b-${c.type}">${TYPE_LABEL[c.type]}</span>` : '<span class="badge b-market">Ignored ✓</span>';
+        return `<li style="margin:4px 0">${verdict} ${esc(h)}${c&&c.issuer?` <span class="meta">→ issuer <b>${esc(c.issuer)}</b>${c.agency?', '+esc(c.agency):''}${c.to?', '+esc((c.from||'?')+' → '+c.to):''}</span>`:''}</li>`; }).join('') + '</ul>';
+    }
+    fresh.forEach(e=>{ e.isNew = true; e.sim = true; });
+    lines.push(`<p style="margin:6px 0">${st.say}</p>${res}`);
+    narr(title, lines.join(''));
+    saveState(); render();
+    if(sendMail && S.email && fresh.length){ await notifyNew(fresh); mailed += fresh.filter(e=>e.emailed).length; }
+    render();
+  }
+  const conf = Object.values(S.events).filter(e=>e.sim && e.type==='confirmed').length;
+  lines.push(`<p class="meta" style="margin-top:8px">${noise ? 'Result: none of these headlines created a Confirmed alert, and no email was sent.' : 'The highlighted cards below are what a user would see.'}${noise ? '' : mailed ? ' An [EXAMPLE] email covering '+mailed+' alert(s) was sent to '+esc(S.email)+'.' : (sendMail&&S.email ? '' : ' Tick "Send real alert emails" on the Run examples tab to also get the email.')} Click <b>Company info &amp; links</b> on a card to see the research panel. (${conf} example alerts in the feed.)</p>`);
+  narr(title, lines.join(''));
+  exHits[sc.id] = true; renderExamples();
+}
+async function runAll(){
+  for(let i=0;i<SCENARIOS.length;i++){ await runScenario(SCENARIOS[i], {guided:true, idx:i, total:SCENARIOS.length}); if(i<SCENARIOS.length-1) await sleep(6000); }
+  toast('Guided demo complete');
+}
+function clearExamples(){
+  for(const k in S.events) if(S.events[k].sim) delete S.events[k];
+  for(const k in S.bbg.rows) if(k.startsWith('EX-')) delete S.bbg.rows[k];
+  for(const k in S.seen) if(k.startsWith('sim:')) delete S.seen[k];
+  for(const k in exHits) delete exHits[k];
+  $('#demoBanner').classList.add('hidden'); saveState(); render(); renderExamples(); toast('Examples cleared');
+}
+function renderExamples(){
+  $('#exList').innerHTML = SCENARIOS.map((sc,i)=>`<div class="panel" style="margin:0;display:flex;flex-direction:column">
+    <h2>${i+1}. ${esc(sc.title)}</h2><p class="hint" style="flex:1">${esc(sc.desc)}</p>
+    <div class="row"><button class="btn sm primary" data-ex="${sc.id}">Run example</button>${exHits[sc.id]?'<span class="meta">✓ ran</span>':''}</div></div>`).join('');
+}
+
+/* ------------------------------------------------------------------ wiring */
+const DEMO_CSV = `Date,Ticker,Name,RTG_SP,RTG_MOODY,RTG_FITCH,INDUSTRY_SECTOR
+2026-07-01,DEMO1,Demo Industrials Inc,BBB,Baa2,BBB,Industrial
+2026-07-01,DEMO2,Sample Retail Corp,BBB-,Baa3,BBB-,"Consumer, Cyclical"
+2026-07-01,DEMO3,Example Energy Co,BBB-,Baa3,BBB,Energy
+2026-07-01,DEMO4,Placeholder Media Group,BB+,Ba1,BB+,Communications
+2026-09-01,DEMO1,Demo Industrials Inc,BBB-,Baa3,BBB-,Industrial
+2026-09-01,DEMO2,Sample Retail Corp,BB+ *-,Baa3,BB+,"Consumer, Cyclical"
+2026-09-01,DEMO3,Example Energy Co,BBB-,Baa3 *-,BBB-,Energy
+2026-09-01,DEMO4,Placeholder Media Group,BB+,Ba1,BB+,Communications
+2026-11-01,DEMO1,Demo Industrials Inc,BBB-,Baa3,BBB-,Industrial
+2026-11-01,DEMO2,Sample Retail Corp,BB+,Ba1,BB+,"Consumer, Cyclical"
+2026-11-01,DEMO3,Example Energy Co,BB+,Baa3,BBB-,Energy
+2026-11-01,DEMO4,Placeholder Media Group,BB,Ba2,BB,Communications`;
+
+function init(){
+  fillSettings();
+  document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+  let tab='alerts'; try{ tab = localStorage.getItem('fam_tab')||'alerts'; }catch(e){} switchTab(tab);
+  ['#email','#interval','#optVerify','#optWatch','#optDesktop','#optBaseline','#srcGdelt','#srcGnews','#srcFile','#ejService','#ejTemplate','#ejKey'].forEach(s=>$(s).addEventListener('change',()=>{ readSettings(); if(S.monitoring) schedule(); render(); }));
+  $('#quickEmail').addEventListener('input',()=>{ $('#email').value=$('#quickEmail').value; });
+  $('#quickStart').onclick=()=>{ $('#email').value=$('#quickEmail').value; start(); };
+  $('#startBtn').onclick=start; $('#stopBtn').onclick=stop;
+  $('#testBtn').onclick=async()=>{ readSettings(); const out=$('#testOut');
+    if(!S.email || !/^\S+@\S+\.\S+$/.test(S.email)){ out.innerHTML='<b style="color:var(--red)">Enter a valid email first.</b>'; return; }
+    if(!mailReady()){ out.innerHTML='<b style="color:var(--amber)">'+esc(NOT_SETUP)+'</b>'; return; }
+    out.textContent = 'Sending…';
+    const demo = {type:'confirmed', issuer:'Test Issuer Corp', agency:'S&P', from:'BBB-', to:'BB+', date:Date.now(), title:'TEST: S&P cuts Test Issuer Corp to junk', sources:[{url:'https://example.com'}]};
+    const ok = await sendEmail('Fallen Angel Monitor: test alert', eventText(demo)+'\n\nIf you received this, alerts are working.');
+    out.innerHTML = ok ? '<b style="color:var(--green)">✓ Sent to '+esc(S.email)+'.</b> It should arrive within a minute. Check spam the first time.'
+                       : '<b style="color:var(--red)">Not sent:</b> '+esc($('#mailFailMsg').textContent); };
+  $('#builderTest').onclick=async()=>{ readSettings(); const out=$('#builderOut'); const k=builderKeysFromInputs();
+    if(!k.service||!k.template||!k.key){ out.innerHTML='<b style="color:var(--red)">Fill in all three values first.</b>'; return; }
+    if(!S.email){ out.innerHTML='<b style="color:var(--red)">Enter your email in "Your email" at the top of this tab first.</b>'; return; }
+    out.textContent='Sending test…';
+    const r = await sendViaEmailJS(k, S.email, 'Fallen Angel Monitor: builder test', 'Your EmailJS setup works. Click "Download configured app" and share that file.\n\nSent '+new Date().toLocaleString());
+    out.innerHTML = r.ok ? '<b style="color:var(--green)">✓ Sent to '+esc(S.email)+'.</b> Check your inbox (and spam), then click <b>Download configured app</b>.'
+                         : '<b style="color:var(--red)">Not sent:</b> '+esc(r.why);
+    log('Builder test: '+(r.ok?'sent':r.why)); };
+  $('#builderDownload').onclick=()=>{ const k=builderKeysFromInputs(); const out=$('#builderOut');
+    if(!k.service||!k.template||!k.key){ out.innerHTML='<b style="color:var(--red)">Fill in all three values (and send a test) first.</b>'; return; }
+    downloadConfigured(k);
+    out.innerHTML='<b style="color:var(--green)">Downloaded fallen-angel-monitor.html.</b> Use that file from now on. Anyone who opens it only needs to type their email.'; };
+  ['#ejService','#ejTemplate','#ejKey'].forEach(x=>$(x).addEventListener('input',()=>{ $('#testOut').textContent='If several downgrades arrive at once, they\'re combined into one digest email. Check spam the first time.'; }));
+  $('#mailFailDiag').onclick=()=>{ switchTab('setup'); if(!mailReady()) $('#ejPanel').open=true; };
+  $('#mailFailClose').onclick=()=>$('#mailFail').classList.add('hidden');
+  $('#checkNow').onclick=()=>check({manual:true});
+  $('#exportCsv').onclick=exportCSV;
+  $('#search').addEventListener('input', ()=>render(true));
+  document.querySelectorAll('.chip[data-f]').forEach(c=>c.onclick=()=>{ S.filters[c.dataset.f]=!S.filters[c.dataset.f]; saveState(); render(true); });
+  $('#feed').addEventListener('click', ev=>{
+    const btn = ev.target.closest('button[data-act]'); if(!btn) return;
+    const card = btn.closest('.card'); const e = S.events[card.dataset.id]; if(!e) return;
+    if(btn.dataset.act==='dismiss'){ delete S.events[e.id]; openInfo.delete(e.id); saveState(); render(true); }
+    if(btn.dataset.act==='info'){ e.isNew=false; card.classList.remove('isnew'); saveState(); showInfo(card, e); }
+  });
+  $('#pendingBar').addEventListener('click', ()=>{ pendingIds.forEach(id=>shownIds.add(id)); pendingIds.clear(); render(true); $('#feed').scrollIntoView({behavior:'smooth', block:'start'});
+  });
+  $('#csvBtn').onclick=()=>$('#csvInput').click();
+  $('#csvInput').onchange=async()=>{ const f=$('#csvInput').files[0]; if(!f) return;
+    try{ const fr = importCSV(await f.text(), f.name); toast(`Imported ${f.name}: ${fr.length} new fallen angel(s)`); render(); notifyNew(fr); }catch(e){ toast('Import failed: '+e.message); } $('#csvInput').value=''; };
+  $('#demoBtn').onclick=()=>{ try{ const fr=importCSV(DEMO_CSV,'demo history'); toast(`Demo loaded: ${Object.values(S.events).filter(e=>e.origin==='bbg').length} Bloomberg-sourced fallen angels`); render(); notifyNew(fr); }catch(e){ toast(e.message); } };
+  $('#clearBbg').onclick=()=>{ if(!confirm('Clear imported Bloomberg/CSV data?')) return; S.bbg.rows={}; for(const k in S.events) if(S.events[k].origin==='bbg') delete S.events[k]; saveState(); render(); };
+  $('#watchFileBtn').onclick=async()=>{
+    if(!window.showOpenFilePicker){ $('#watchStatus').textContent='Auto re-read needs Chrome or Edge. In this browser, use Import CSV snapshot each time.'; return; }
+    try{ [fileHandle] = await window.showOpenFilePicker({types:[{description:'CSV',accept:{'text/csv':['.csv']}}]}); fileLastMod=0;
+      const fr = await readWatchedFile(); S.src.file=true; saveState(); fillSettings(); render(); notifyNew(fr);
+      toast('Watching file. It is re-read on every check'); }catch(e){ if(e.name!=='AbortError') $('#watchStatus').textContent='Could not open file: '+e.message; }
+  };
+  $('#backfillBtn').onclick=backfill;
+  renderExamples();
+  $('#exList').addEventListener('click', ev=>{ const b=ev.target.closest('[data-ex]'); if(b) runScenario(SCENARIOS.find(x=>x.id===b.dataset.ex)); });
+  $('#exAll').onclick=runAll; $('#exClear').onclick=clearExamples;
+  $('#exEmail').checked = !!S.email;
+  $('#demoBack').onclick=()=>switchTab('examples'); $('#demoClose').onclick=()=>$('#demoBanner').classList.add('hidden');
+  document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>{
+    const p=b.dataset.preset, iso=d=>d.toISOString().slice(0,10);
+    if(p==='covid'){ $('#hStart').value='2020-03-01'; $('#hEnd').value='2020-04-30'; }
+    else { $('#hEnd').value=iso(new Date()); $('#hStart').value=iso(new Date(Date.now()-p*864e5)); }
+  });
+  $('#hEnd').value=new Date().toISOString().slice(0,10); $('#hStart').value=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+  $('#resetBtn').onclick=()=>{ if(!confirm('Delete all alerts, settings and imported data in this browser?')) return; try{ localStorage.removeItem(KEY); }catch(e){} location.reload(); };
+  $('#themeBtn').onclick=()=>{ const r=document.documentElement; const dark = r.dataset.theme ? r.dataset.theme==='dark' : matchMedia('(prefers-color-scheme: dark)').matches; r.dataset.theme = dark?'light':'dark'; try{ localStorage.setItem('fam_theme', r.dataset.theme); }catch(e){} };
+  try{ const th=localStorage.getItem('fam_theme'); if(th) document.documentElement.dataset.theme=th; }catch(e){}
+  // FRED charts (last 2 years)
+  const cosd = new Date(Date.now()-730*864e5).toISOString().slice(0,10);
+  const fred = id=>`https://fred.stlouisfed.org/graph/fredgraph.png?id=${id}&cosd=${cosd}&width=640&height=300`;
+  $('#chHY').src=fred('BAMLH0A0HYM2'); $('#chBBB').src=fred('BAMLC0A4CBBB'); $('#chBB').src=fred('BAMLH0A1HYBB');
+  document.querySelectorAll('.charts img').forEach(img=>img.onerror=()=>{ img.replaceWith(Object.assign(document.createElement('div'),{className:'meta',style:'padding:30px 8px;color:#5d6673',textContent:'Chart unavailable offline. Follow the FRED link.'})); });
+  // rating scale explainer
+  $('#scaleRow').innerHTML = SP_SCALE.slice(0,16).map((r,i)=>(i===10?'<span class="line" title="Investment grade / high yield line"></span>':'')+rtChip(r)+(i<16?`<span class="meta" style="font-size:11px;margin-right:4px">${esc(M_SCALE[i]||'')}</span>`:'')).join('');
+  const runTest=()=>{ const c = classify($('#testHeadline').value); $('#testOut').innerHTML = c ? `<span class="badge b-${c.type}">${TYPE_LABEL[c.type]}</span> issuer: <b>${esc(c.issuer||'—')}</b> · agency: <b>${esc(c.agency||'—')}</b> · from: <b>${esc(c.from||'—')}</b> · to: <b>${esc(c.to||'—')}</b>` : '<span class="badge b-market">Ignored</span> not an IG → HY signal'; };
+  $('#testHeadline').addEventListener('input', runTest); runTest();
+  render(); setStatus();
+  if(S.monitoring){ const due = S.nextCheck && S.nextCheck>Date.now() ? S.nextCheck-Date.now() : 1500; clearTimeout(timer); S.nextCheck=Date.now()+due; timer=setTimeout(()=>check(), due); render(); }
+  setInterval(()=>{ if(S.monitoring) $('#stNext').textContent = fmtTime(S.nextCheck); }, 30000);
+}
+window.FAM = {runScenario:id=>runScenario(SCENARIOS.find(x=>x.id===id)), SCENARIOS:()=>SCENARIOS.map(s=>s.id), classify, normRating, indexRating, importCSV, parseCSV, ingest, S:()=>S};
+init();
+</script>
+</body>
+</html>
